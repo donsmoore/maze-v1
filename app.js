@@ -7,6 +7,8 @@ const drawPathBtn = document.getElementById("drawPathBtn");
 const toggleGridCheckbox = document.getElementById("toggleGrid");
 const pathDurationInput = document.getElementById("pathDuration");
 const traverse3dBtn = document.getElementById("traverse3dBtn");
+const fullscreenToggleBtn = document.getElementById("fullscreenToggle");
+const replayBtn = document.getElementById("replayBtn");
 const statusEl = document.getElementById("status");
 const canvasContainer = document.getElementById("canvasContainer");
 
@@ -42,6 +44,17 @@ const gridMaterial = new THREE.LineBasicMaterial({ color: 0xd32f2f });
 let drawRequestId = null;
 let currentGridWidth = 0;
 let currentGridHeight = 0;
+let lastTraversedPath = null;
+let canvasControlsVisible = false;
+function setReplayVisibility(enabled) {
+  replayBtn.style.display = canvasControlsVisible && enabled ? "block" : "none";
+}
+function setCanvasControlsVisible(show) {
+  canvasControlsVisible = show;
+  fullscreenToggleBtn.style.display = show ? "block" : "none";
+  setReplayVisibility(show && !!lastTraversedPath);
+}
+setCanvasControlsVisible(false);
 const WALL_THICKNESS_PX = 10;
 let gridHelperGroup = null;
 let currentCells = null;
@@ -371,6 +384,7 @@ function createGerbilMesh() {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 16), furMaterial);
   head.position.set(0.38, 0.03, 0);
   group.add(head);
+  group.userData.head = head;
 
   const leftEar = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), accentMaterial);
   leftEar.position.set(0.32, 0.18, 0.09);
@@ -577,11 +591,13 @@ function drawSolutionPath(cells, width, height) {
   requestAnimationFrame(step);
 }
 
-function start3DTraversal() {
+function start3DTraversal(existingPath = null) {
   if (!currentCells || active3DController) {
     return;
   }
-  const path = solveMaze(currentCells);
+  const path = existingPath
+    ? existingPath.map((p) => ({ x: p.x, y: p.y }))
+    : solveMaze(currentCells);
   if (!path || path.length < 2) {
     statusEl.textContent = "Unable to solve maze for traversal.";
     traverse3dBtn.disabled = false;
@@ -613,6 +629,9 @@ function start3DTraversal() {
   activeScene = scene3D;
   activeCamera = camera3D;
   traverse3dBtn.disabled = true;
+  setCanvasControlsVisible(true);
+  lastTraversedPath = path.map((p) => ({ x: p.x, y: p.y }));
+  setReplayVisibility(true);
 
   controller.onComplete = () => {
     active3DController = null;
@@ -690,6 +709,7 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
       p.y + 0.5 - height / 2
     )
   );
+  const axisY = new THREE.Vector3(0, 1, 0);
   const gerbil = createGerbilMesh();
   const entranceDir =
     pathPoints.length > 1
@@ -698,8 +718,12 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
   const gerbilStart = pathPoints[0].clone().sub(entranceDir.clone().multiplyScalar(0.4));
   gerbil.position.set(gerbilStart.x, 0.12, gerbilStart.z);
   const entranceYaw = Math.atan2(entranceDir.x, entranceDir.z);
-  gerbil.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), entranceYaw - Math.PI / 2);
+  gerbil.setRotationFromAxisAngle(axisY, entranceYaw - Math.PI / 2);
+  if (gerbil.userData.head) {
+    gerbil.userData.head.setRotationFromAxisAngle(axisY, 0);
+  }
   scene.add(gerbil);
+
   let curve;
   if (pathPoints.length >= 3) {
     curve = new THREE.CatmullRomCurve3(pathPoints, false, "catmullrom", 0.2);
@@ -710,6 +734,7 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
   const overviewDuration = 1700;
   const approachDuration = 1800;
   const totalSegments = pathPoints.length - 1;
+
   let startTime = null;
   let completed = false;
 
@@ -720,7 +745,6 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
     height * 0.8
   );
   const isoLookTarget = new THREE.Vector3(0, 0, 0);
-  const approachTarget = entranceLook.clone().add(new THREE.Vector3(-entranceDir.x - 0.5, 1.8, -entranceDir.z + 0.8));
   camera.position.copy(isoPosition);
   camera.lookAt(isoLookTarget);
 
@@ -736,6 +760,7 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
         startTime = timestamp;
       }
       const elapsed = timestamp - startTime;
+
       if (elapsed < overviewDuration) {
         const spin = (elapsed / overviewDuration) * (Math.PI / 9);
         const orbitPos = isoPosition
@@ -749,13 +774,15 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
 
       if (elapsed < overviewDuration + approachDuration) {
         const t = (elapsed - overviewDuration) / approachDuration;
-        const aroundPath = entranceLook
-          .clone()
-          .add(
-            new THREE.Vector3(-entranceDir.x, 0, -entranceDir.z).multiplyScalar(0.6)
-          )
-          .add(new THREE.Vector3(0, 1.5, 0));
-        const sweepPos = new THREE.Vector3().lerpVectors(isoPosition, aroundPath, t);
+        const sweepPos = new THREE.Vector3()
+          .lerpVectors(
+            isoPosition,
+            entranceLook
+              .clone()
+              .add(new THREE.Vector3(-entranceDir.x, 0, -entranceDir.z).multiplyScalar(0.6))
+              .add(new THREE.Vector3(0, 1.5, 0)),
+            t
+          );
         camera.position.copy(sweepPos);
         camera.lookAt(entranceLook);
         gridHelper.visible = true;
@@ -771,12 +798,9 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
 
       if (tangent.lengthSq() > 0) {
         const yaw = Math.atan2(tangent.x, tangent.z);
-        const targetQuat = new THREE.Quaternion().setFromAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          yaw
-        );
+        const targetQuat = new THREE.Quaternion().setFromAxisAngle(axisY, yaw);
         const facingQuat = targetQuat.multiply(
-          new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)
+          new THREE.Quaternion().setFromAxisAngle(axisY, -Math.PI / 2)
         );
         gerbil.quaternion.slerp(facingQuat, 0.12);
       }
@@ -788,7 +812,7 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
       const lookTarget = gerbil.position.clone();
       lookTarget.y += 0.25;
       camera.lookAt(lookTarget);
-      gridHelper.visible = travelElapsed < 500;
+      gridHelper.visible = false;
 
       if (travelProgress >= 1) {
         completed = true;
@@ -797,6 +821,7 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
     },
   };
 
+  controller.pathSnapshot = path.map((p) => ({ x: p.x, y: p.y }));
   return controller;
 }
 
@@ -834,6 +859,8 @@ generateBtn.addEventListener("click", () => {
       renderGrid(width, height, { updateCamera: false, showStatus: false });
     }
     traverse3dBtn.disabled = false;
+    lastTraversedPath = null;
+    setCanvasControlsVisible(false);
   });
 });
 
@@ -872,6 +899,19 @@ traverse3dBtn.addEventListener("click", () => {
   start3DTraversal();
 });
 
+replayBtn.addEventListener("click", () => {
+  if (active3DController) {
+    statusEl.textContent = "Traversal already in progress.";
+    return;
+  }
+  if (!lastTraversedPath || lastTraversedPath.length < 2) {
+    statusEl.textContent = "Run a traversal first.";
+    return;
+  }
+  start3DTraversal(lastTraversedPath);
+  statusEl.textContent = "Replaying traversal…";
+});
+
 function handleDimensionChange() {
   if (!toggleGridCheckbox.checked) {
     return;
@@ -889,6 +929,33 @@ function handleDimensionChange() {
 
 widthInput.addEventListener("change", handleDimensionChange);
 heightInput.addEventListener("change", handleDimensionChange);
+
+fullscreenToggleBtn.addEventListener("click", async () => {
+  const isFullscreen = document.fullscreenElement !== null;
+  if (!isFullscreen) {
+    try {
+      await canvasContainer.requestFullscreen();
+      fullscreenToggleBtn.setAttribute("aria-pressed", "true");
+      fullscreenToggleBtn.textContent = "Exit Fullscreen";
+    } catch (err) {
+      console.error("Failed to enter fullscreen:", err);
+    }
+  } else {
+    await document.exitFullscreen();
+    fullscreenToggleBtn.setAttribute("aria-pressed", "false");
+    fullscreenToggleBtn.textContent = "Fullscreen";
+  }
+});
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    fullscreenToggleBtn.setAttribute("aria-pressed", "false");
+    fullscreenToggleBtn.textContent = "Fullscreen";
+  } else {
+    fullscreenToggleBtn.setAttribute("aria-pressed", "true");
+    fullscreenToggleBtn.textContent = "Exit Fullscreen";
+  }
+});
 
 const initialWidth = validateDimension(widthInput.value);
 const initialHeight = validateDimension(heightInput.value);

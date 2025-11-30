@@ -34,7 +34,14 @@
     </header>
 
     <main>
-      <div id="canvasContainer" aria-label="Maze canvas"></div>
+      <div id="canvasContainer" aria-label="Maze canvas">
+        <button id="fullscreenToggle" type="button" class="canvas-control left" aria-pressed="false">
+          Fullscreen
+        </button>
+        <button id="replayBtn" type="button" class="canvas-control right">
+          Replay
+        </button>
+      </div>
       <p id="status" aria-live="polite"></p>
     </main>
 

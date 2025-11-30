@@ -42,6 +42,43 @@ label {
   color: #1f2937;
 }
 
+#fullscreenToggle.canvas-control,
+#replayBtn.canvas-control {
+  position: absolute;
+  top: 1rem;
+  z-index: 10;
+  border: none;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  display: none;
+}
+
+#fullscreenToggle.canvas-control:hover,
+#replayBtn.canvas-control:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+#fullscreenToggle.canvas-control[aria-pressed="true"] {
+  background: rgba(99, 102, 241, 0.9);
+}
+
+#replayBtn.canvas-control {
+  display: none;
+}
+
+#fullscreenToggle.canvas-control.left {
+  left: 1rem;
+}
+
+#replayBtn.canvas-control.right {
+  right: 1rem;
+}
+
 label.path-duration {
   width: clamp(90px, 14vw, 140px);
   align-items: center;
@@ -97,6 +134,7 @@ main {
 #canvasContainer {
   width: min(900px, 100%);
   aspect-ratio: 1 / 1;
+  position: relative;
   background: #fff;
   border: 1px dashed #d1d5db;
   border-radius: 12px;
