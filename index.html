@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mazes v1 – Three.js Generator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Three.js Maze Generator</h1>
+      <div class="controls">
+        <label>
+          Width (cells)
+          <input type="number" id="mazeWidth" value="10" min="5" max="80" />
+        </label>
+        <label>
+          Height (cells)
+          <input type="number" id="mazeHeight" value="10" min="5" max="80" />
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="toggleGrid" checked />
+          Show Grid
+        </label>
+        <button id="generateBtn">Generate Maze</button>
+        <label class="path-duration">
+          Path Duration (sec)
+          <input type="number" id="pathDuration" value="20" min="1" max="60" step="0.5" />
+        </label>
+        <button id="drawPathBtn" type="button">Draw Path</button>
+        <button id="traverse3dBtn" type="button" disabled>Traverse Maze in 3D</button>
+      </div>
+      <p class="hint">White background, black walls. Watch every wall segment as it is drawn.</p>
+    </header>
+
+    <main>
+      <div id="canvasContainer" aria-label="Maze canvas"></div>
+      <p id="status" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

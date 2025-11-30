@@ -1,0 +1,125 @@
+:root {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #111;
+  background-color: #f4f6fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 1.5rem clamp(1rem, 4vw, 3rem);
+  background: #fff;
+  border-bottom: 1px solid #e1e5f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+label.path-duration {
+  width: clamp(90px, 14vw, 140px);
+  align-items: center;
+}
+
+label.path-duration input {
+  width: 60%;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+label.toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 500;
+}
+
+input {
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5f5;
+  min-width: 6ch;
+}
+
+button {
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-size: 1rem;
+  padding: 0.7rem 1.3rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem clamp(1rem, 5vw, 4rem);
+  gap: 1rem;
+}
+
+#canvasContainer {
+  width: min(900px, 100%);
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+#status {
+  font-size: 0.95rem;
+  color: #374151;
+  min-height: 1.4rem;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
