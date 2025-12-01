@@ -1,0 +1,48 @@
+Let's Encrypt setup steps used for donsmoore.com
+===============================================
+
+Prereqs
+-------
+1. Confirm DNS for `donsmoore.com` (and `www`) points to this server.
+2. Ensure ports 80/443 are open.
+3. Apache already answers on port 80/443.
+
+Install Certbot via snap (Ubuntu)
+---------------------------------
+sudo snap install core
+sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+
+Obtain/renew certificate
+------------------------
+# Apache plugin method (auto HTTP challenge + Apache reload)
+sudo certbot --apache -d donsmoore.com -d www.donsmoore.com
+
+# or webroot method if preferred
+sudo certbot certonly --webroot -w /var/www/html -d donsmoore.com -d www.donsmoore.com
+
+Certificate files land under:
+/etc/letsencrypt/live/donsmoore.com/
+  fullchain.pem
+  privkey.pem
+  chain.pem
+
+Apache SSL vhost changes
+------------------------
+In `default-ssl.conf` (copy in mazes/v1 already updated):
+
+SSLEngine on
+SSLCertificateFile /etc/letsencrypt/live/donsmoore.com/fullchain.pem
+SSLCertificateKeyFile /etc/letsencrypt/live/donsmoore.com/privkey.pem
+SSLCertificateChainFile /etc/letsencrypt/live/donsmoore.com/chain.pem
+IncludeOptional /etc/letsencrypt/options-ssl-apache.conf
+
+After copying into /etc/apache2/sites-available/default-ssl.conf:
+sudo a2ensite default-ssl.conf   # if not yet enabled
+sudo systemctl reload apache2
+
+Renewal
+-------
+Certbot's systemd timer handles renewal automatically. Test manually:
+sudo certbot renew --dry-run

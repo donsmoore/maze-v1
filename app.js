@@ -68,12 +68,14 @@ const DIRECTIONS = [
 ];
 
 function resizeRenderer() {
-  const size = canvasContainer.clientWidth;
-  renderer.setSize(size, size, false);
+  const rect = canvasContainer.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(rect.width));
+  const height = Math.max(1, Math.floor(rect.height));
+  renderer.setSize(width, height, false);
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
   if (camera3D) {
-    camera3D.aspect = 1;
+    camera3D.aspect = width / height;
     camera3D.updateProjectionMatrix();
   }
 }
@@ -82,14 +84,24 @@ window.addEventListener("resize", resizeRenderer);
 resizeRenderer();
 
 function configureCamera(gridWidth, gridHeight) {
-  const halfW = gridWidth / 2;
-  const halfH = gridHeight / 2;
   const margin = 0.5;
+  const halfGridW = gridWidth / 2 + margin;
+  const halfGridH = gridHeight / 2 + margin;
+  const rect = canvasContainer.getBoundingClientRect();
+  const aspect = rect.width / rect.height;
 
-  camera2D.left = -halfW - margin;
-  camera2D.right = halfW + margin;
-  camera2D.bottom = -halfH - margin;
-  camera2D.top = halfH + margin;
+  let halfW = halfGridW;
+  let halfH = halfGridH;
+  if (halfW / halfH > aspect) {
+    halfH = halfW / aspect;
+  } else {
+    halfW = halfH * aspect;
+  }
+
+  camera2D.left = -halfW;
+  camera2D.right = halfW;
+  camera2D.bottom = -halfH;
+  camera2D.top = halfH;
   camera2D.position.set(0, 0, 10);
   camera2D.lookAt(0, 0, 0);
   camera2D.updateProjectionMatrix();
@@ -451,31 +463,43 @@ function createLabelSprite(text) {
 
 function addEntranceExitLabels(width, height) {
   clearLabels();
-  const startLabel = createLabelSprite("Entrance");
+  const startLabel = createLabelSprite("Start");
   const exitLabelSprite = createLabelSprite("Exit");
-  const updatePositions = () => {
-    const rect = canvasContainer.getBoundingClientRect();
+
+  const placement = () => {
+    const containerRect = canvasContainer.getBoundingClientRect();
     const canvasRect = renderer.domElement.getBoundingClientRect();
+    const offsetX = canvasRect.left - containerRect.left;
+    const offsetY = canvasRect.top - containerRect.top;
     const project = (x, y) => {
       const worldX = (x - width / 2) / (camera2D.right - camera2D.left);
       const worldY = (y - height / 2) / (camera2D.top - camera2D.bottom);
       return {
-        x: canvasRect.left + canvasRect.width / 2 + worldX * canvasRect.width,
-        y: canvasRect.top + canvasRect.height / 2 - worldY * canvasRect.height,
+        x:
+          offsetX +
+          canvasRect.width / 2 +
+          worldX * canvasRect.width,
+        y:
+          offsetY +
+          canvasRect.height / 2 -
+          worldY * canvasRect.height,
       };
     };
-    const entrancePos = project(0.5, -0.7);
-    const exitPos = project(width - 0.5, height + 0.7);
-    startLabel.style.left = `${entrancePos.x}px`;
-    startLabel.style.top = `${entrancePos.y}px`;
+
+    const startPos = project(0.5, 0.5);
+    const exitPos = project(width - 0.5, height - 0.5);
+
+    startLabel.style.left = `${startPos.x}px`;
+    startLabel.style.top = `${startPos.y}px`;
     exitLabelSprite.style.left = `${exitPos.x}px`;
     exitLabelSprite.style.top = `${exitPos.y}px`;
   };
-  updatePositions();
-  const resizeHandler = () => updatePositions();
-  window.addEventListener("resize", resizeHandler);
-  startLabel._resizeHandler = resizeHandler;
-  exitLabelSprite._resizeHandler = resizeHandler;
+
+  const handler = () => requestAnimationFrame(placement);
+  window.addEventListener("resize", handler);
+  placement();
+  startLabel._resizeHandler = handler;
+  exitLabelSprite._resizeHandler = handler;
   entranceLabel = startLabel;
   exitLabel = exitLabelSprite;
 }
@@ -595,6 +619,10 @@ function start3DTraversal(existingPath = null) {
   if (!currentCells || active3DController) {
     return;
   }
+  const gridWasVisible = !!(gridHelperGroup && gridHelperGroup.visible);
+  if (gridWasVisible) {
+    gridHelperGroup.visible = false;
+  }
   const path = existingPath
     ? existingPath.map((p) => ({ x: p.x, y: p.y }))
     : solveMaze(currentCells);
@@ -612,7 +640,6 @@ function start3DTraversal(existingPath = null) {
   );
   const durationMs = durationSeconds * 1000;
   traverse3dBtn.disabled = true;
-  clearGrid();
   clearLabels();
   statusEl.textContent = "Preparing 3D traversal…";
 
@@ -636,6 +663,9 @@ function start3DTraversal(existingPath = null) {
   controller.onComplete = () => {
     active3DController = null;
     traverse3dBtn.disabled = false;
+    if (gridHelperGroup) {
+      gridHelperGroup.visible = gridWasVisible && toggleGridCheckbox.checked;
+    }
     statusEl.textContent = "3D traversal complete. You are now in 3D view.";
   };
 }
@@ -664,14 +694,6 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.01;
   scene.add(floor);
-
-  const gridHelper = new THREE.GridHelper(
-    Math.max(width, height) + 2,
-    Math.max(width, height),
-    0xd32f2f,
-    0xd32f2f
-  );
-  scene.add(gridHelper);
 
   const cardboardTexture = createCardboardTexture();
   cardboardTexture.wrapS = cardboardTexture.wrapT = THREE.RepeatWrapping;
@@ -768,24 +790,21 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
           .applyAxisAngle(new THREE.Vector3(0, 1, 0), spin);
         camera.position.copy(orbitPos);
         camera.lookAt(isoLookTarget);
-        gridHelper.visible = true;
         return;
       }
 
       if (elapsed < overviewDuration + approachDuration) {
-        const t = (elapsed - overviewDuration) / approachDuration;
-        const sweepPos = new THREE.Vector3()
-          .lerpVectors(
-            isoPosition,
-            entranceLook
-              .clone()
-              .add(new THREE.Vector3(-entranceDir.x, 0, -entranceDir.z).multiplyScalar(0.6))
-              .add(new THREE.Vector3(0, 1.5, 0)),
-            t
-          );
-        camera.position.copy(sweepPos);
-        camera.lookAt(entranceLook);
-        gridHelper.visible = true;
+        const phase = (elapsed - overviewDuration) / approachDuration;
+        const closeCam = new THREE.Vector3(
+          pathPoints[0].x - entranceDir.x * 1.2,
+          1.4,
+          pathPoints[0].z - entranceDir.z * 1.2
+        );
+        const approachPos = isoPosition.clone().lerp(closeCam, Math.min(1, Math.max(0, phase)));
+        camera.position.copy(approachPos);
+        const lookTarget = pathPoints[0].clone();
+        lookTarget.y = 0.15;
+        camera.lookAt(lookTarget);
         return;
       }
 
@@ -812,8 +831,6 @@ function create3DTraversalController(path, width, height, durationMs, cells) {
       const lookTarget = gerbil.position.clone();
       lookTarget.y += 0.25;
       camera.lookAt(lookTarget);
-      gridHelper.visible = false;
-
       if (travelProgress >= 1) {
         completed = true;
         this.onComplete();

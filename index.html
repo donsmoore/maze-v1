@@ -8,29 +8,27 @@
   </head>
   <body>
     <header>
-      <h1>Three.js Maze Generator</h1>
       <div class="controls">
-        <label>
-          Width (cells)
+        <div class="control control-numeric">
+          <label for="mazeWidth">Width</label>
           <input type="number" id="mazeWidth" value="10" min="5" max="80" />
-        </label>
-        <label>
-          Height (cells)
+        </div>
+        <div class="control control-numeric">
+          <label for="mazeHeight">Height</label>
           <input type="number" id="mazeHeight" value="10" min="5" max="80" />
-        </label>
-        <label class="toggle">
+        </div>
+        <div class="control control-toggle">
+          <label for="toggleGrid">Show Grid</label>
           <input type="checkbox" id="toggleGrid" checked />
-          Show Grid
-        </label>
-        <button id="generateBtn">Generate Maze</button>
-        <label class="path-duration">
-          Path Duration (sec)
+        </div>
+        <button id="generateBtn">Generate</button>
+        <div class="control control-numeric">
+          <label for="pathDuration">Path Duration</label>
           <input type="number" id="pathDuration" value="20" min="1" max="60" step="0.5" />
-        </label>
+        </div>
         <button id="drawPathBtn" type="button">Draw Path</button>
-        <button id="traverse3dBtn" type="button" disabled>Traverse Maze in 3D</button>
+        <button id="traverse3dBtn" type="button" disabled>Traverse 3D</button>
       </div>
-      <p class="hint">White background, black walls. Watch every wall segment as it is drawn.</p>
     </header>
 
     <main>
